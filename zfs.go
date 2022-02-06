@@ -1,9 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
+	"strings"
 
 	zfs "github.com/bicomsystems/go-libzfs"
 )
@@ -24,6 +27,16 @@ type ZfsEntity struct {
 	Avail      string `json:"avail"`
 	Refer      string `json:"refer"`
 	MountPoint string `json:"mountpoint"`
+}
+
+func zfsGetPool(dataset string) (res string) {
+	res = strings.Split(dataset, "/")[0]
+	return
+}
+
+func zfsGetZvolFullPath(dataset string) (res string) {
+	res = fmt.Sprintf("/dev/zvol/%s", dataset)
+	return
 }
 
 func zfsGetProperties(ds *zfs.Dataset) ZfsEntity {
@@ -155,4 +168,89 @@ func ZfsGetCloneInfo(ClonePath string) (map[string]string, error) {
 		res["written"] = propWritten.Value
 	}
 	return res, err
+}
+
+func ZfsDestroyDataset(dataset string) (err error) {
+	var (
+		ds zfs.Dataset
+	)
+	if ds, err = zfs.DatasetOpenSingle(dataset); err != nil {
+		log.Println(err.Error())
+	} else {
+		if err = ds.DestroyRecursive(); err != nil {
+			log.Println(err.Error())
+		}
+		ds.Close()
+	}
+	return err
+}
+
+func ZfsClone(origin string, dataset string) (err error) {
+	var (
+		ds_origin, ds_target zfs.Dataset
+	)
+	if ds_origin, err = zfs.DatasetOpenSingle(origin); err != nil {
+		log.Println(err.Error())
+	} else {
+		props := make(map[zfs.Prop]zfs.Property)
+		if ds_target, err = ds_origin.Clone(dataset, props); err != nil {
+			log.Println(err.Error())
+		}
+	}
+	ds_origin.Close()
+	ds_target.Close()
+
+	return
+}
+
+func ZfsCloneLast(origin string, dataset string) (err error) {
+	var (
+		ds_origin, ds_target zfs.Dataset
+		lastSnapshot         string
+	)
+
+	if lastSnapshot, err = ZfsGetLastSnapshot(origin); err != nil {
+		log.Println(err.Error())
+	} else {
+		if ds_origin, err = zfs.DatasetOpenSingle(lastSnapshot); err != nil {
+			log.Println(err.Error())
+		} else {
+			props := make(map[zfs.Prop]zfs.Property)
+			if ds_target, err = ds_origin.Clone(dataset, props); err != nil {
+				log.Println(err.Error())
+			}
+		}
+	}
+	ds_origin.Close()
+	ds_target.Close()
+
+	return
+}
+
+func ZfsRollback(snapshot string) (err error) {
+	var (
+		ds, ds_snap zfs.Dataset
+	)
+	ds_path := strings.Split(snapshot, "@")[0]
+	if ds, err = zfs.DatasetOpenSingle(ds_path); err != nil {
+		log.Println(err.Error())
+	} else {
+		if ds_snap, err = zfs.DatasetOpenSingle(snapshot); err != nil {
+			log.Println(err.Error())
+		} else {
+			if err = ds.Rollback(&ds_snap, true); err != nil {
+				log.Println(err.Error())
+			}
+		}
+	}
+	ds_snap.Close()
+	ds.Close()
+	return
+}
+
+func ZfsCheckZvol(dataset string) (err error) {
+	if _, err = os.Open(zfsGetZvolFullPath(dataset)); err != nil {
+		err = errors.New(fmt.Sprintf("%s not found in /dev/zvol", dataset))
+	}
+	return err
 }
