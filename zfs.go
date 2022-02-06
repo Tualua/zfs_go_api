@@ -11,16 +11,6 @@ import (
 	zfs "github.com/bicomsystems/go-libzfs"
 )
 
-/*
-type ZfsEntity struct {
-	XMLName    xml.Name `xml:"zfsentity"`
-	Name       string   `xml:"name"`
-	Used       string   `xml:"used"`
-	Avail      string   `xml:"avail"`
-	Refer      string   `xml:"refer"`
-	MountPoint string   `xml:"mountpoint"`
-}
-*/
 type ZfsEntity struct {
 	Name       string `json:"name"`
 	Used       string `json:"used"`
