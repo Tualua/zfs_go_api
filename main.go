@@ -163,6 +163,22 @@ func apiCheckZvol(w http.ResponseWriter, r *http.Request) {
 	res.Write(&w)
 }
 
+func apiCheckDatasetExists(w http.ResponseWriter, r *http.Request) {
+	var (
+		dsExists bool = false
+		res      jsonResponseGeneric
+		err      error
+	)
+	res.SetAction("checkds")
+	if dsExists, err = ZfsCheckDatasetExists(mux.Vars(r)["dataset"]); err != nil {
+		res.Error(err.Error())
+	} else {
+		res.Success()
+		res.SetVal("exists", dsExists)
+	}
+	res.Write(&w)
+}
+
 func run(cfg *Config) {
 	router := mux.NewRouter().StrictSlash(true)
 	addrString := cfg.Server.Host + ":" + cfg.Server.Port
@@ -195,6 +211,9 @@ func run(cfg *Config) {
 	router.Path("/").Queries( //Check if zvol symlink exists in /dev
 		"action", "checkzvol",
 		"dataset", "{dataset}").HandlerFunc(apiCheckZvol)
+	router.Path("/").Queries( //Check if zvol symlink exists in /dev
+		"action", "checkds",
+		"dataset", "{dataset}").HandlerFunc(apiCheckDatasetExists)
 	router.Use(loggingMiddleware)
 	log.Fatal(http.ListenAndServe(addrString, router))
 }
@@ -213,7 +232,7 @@ func main() {
 	} else {
 		log.Printf("Using config file %s", pathConfig)
 		if os.Getenv("APP_ENV") != "dev" && cfg.Server.Host != "127.0.0.1" {
-			log.Printf("ZFS Api will be listening on %s. Using other than 127.0.0.1 address is NOT RECOMMENDED for production evironment!", cfg.Server.Host)
+			log.Printf("ZFS API will be listening on %s. Using other than 127.0.0.1 address is NOT RECOMMENDED for production evironment!", cfg.Server.Host)
 		}
 		run(cfg)
 	}

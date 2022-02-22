@@ -16,13 +16,6 @@ type jsonResponseListAll struct {
 	ZfsEntities []ZfsEntity `json:"data"`
 }
 
-type jsonApi interface {
-	SetAction()
-	Status()
-	Error()
-	Write()
-}
-
 func (j *jsonResponseGeneric) SetAction(action string) {
 	j.Action = action
 }

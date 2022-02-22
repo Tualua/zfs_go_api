@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -17,11 +16,6 @@ type ZfsEntity struct {
 	Avail      string `json:"avail"`
 	Refer      string `json:"refer"`
 	MountPoint string `json:"mountpoint"`
-}
-
-func zfsGetPool(dataset string) (res string) {
-	res = strings.Split(dataset, "/")[0]
-	return
 }
 
 func zfsGetZvolFullPath(dataset string) (res string) {
@@ -240,7 +234,25 @@ func ZfsRollback(snapshot string) (err error) {
 
 func ZfsCheckZvol(dataset string) (err error) {
 	if _, err = os.Open(zfsGetZvolFullPath(dataset)); err != nil {
-		err = errors.New(fmt.Sprintf("%s not found in /dev/zvol", dataset))
+		err = fmt.Errorf("%s not found in /dev/zvol", dataset)
 	}
 	return err
+}
+
+func ZfsCheckDatasetExists(dataset string) (res bool, err error) {
+	var (
+		ds zfs.Dataset
+	)
+	if ds, err = zfs.DatasetOpenSingle(dataset); err != nil {
+		if strings.Contains(err.Error(), "dataset does not exist") {
+			res = false
+			err = nil
+		} else {
+			log.Println(err.Error())
+		}
+	} else {
+		res = true
+	}
+	ds.Close()
+	return
 }
